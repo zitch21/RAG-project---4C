@@ -8,8 +8,13 @@ Built with standard Python (`tkinter`) - **no external dependencies or `pip inst
 
 ## 🚀 How to Run the Program
 
-### Method 1: Double-Click Launcher (Easiest)
-Simply double-click the launcher files inside this project folder:
+### Method 1: Web Standalone Version (Works on ANY Device & OS)
+* **`index.html`** - **Double-click to open in any web browser** (Chrome, Edge, Safari, Firefox). Works on Windows, Mac, Linux, Chromebooks, iPads, and phones! Zero installation, 100% offline.
+
+### Method 2: Portable Windows Executable (For Flash Drives)
+* **`RAG_Simulator.exe`** - **Runs on ANY Windows PC directly from your flash drive.** No Python or external software required! Just double-click it.
+
+### Method 3: Double-Click Launcher (If Python is installed)
 * **`run_gui.bat`** - Launches the interactive Visual GUI window.
 * **`run_cli.bat`** - Launches the terminal Command-Line mode.
 
@@ -117,10 +122,12 @@ python main.py --cli
   8. View Current Graph State
   9. Run Deadlock Detection
   10. Clear Graph
+  11. Remove Process
+  12. Remove Resource
   0. Exit
 ```
 
-Type a number (`0` to `10`) and press **Enter**.
+Type a number (`0` to `12`) and press **Enter**.
 
 ---
 
@@ -128,6 +135,8 @@ Type a number (`0` to `10`) and press **Enter**.
 
 | File | Description |
 | :--- | :--- |
+| **`index.html`** | **Standalone Web Version.** Opens in any browser on any device (Windows, Mac, Linux, iPad, Android). |
+| **`RAG_Simulator.exe`** | **Standalone Windows executable.** Runs on any PC directly from a flash drive without installing Python. |
 | **`main.py`** | Application entry point. Launches GUI by default, or CLI with `--cli`. |
 | **`rag_engine.py`** | Core RAG data structure, cycle finder (DFS), and Graph Reduction algorithm. |
 | **`gui_simulator.py`** | Interactive visual simulator window built with Python `tkinter`. |

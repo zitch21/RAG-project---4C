@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OS Resource Allocation Graph (RAG) Simulator & Deadlock Detection</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --header-bg: #0f172a;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --border-focus: #3b82f6;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --success-text: #15803d;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --danger-text: #b91c1c;
+      --warning: #d97706;
+      --warning-bg: #fef3c7;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background: var(--header-bg);
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-md);
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-title h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-title .tag {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      background: #334155;
+      color: #94a3b8;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+
+    #statusBanner {
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      background: #1e293b;
+      color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    #statusBanner.safe {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid #86efac;
+    }
+
+    #statusBanner.deadlocked {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border: 1px solid #fca5a5;
+    }
+
+    /* Layout */
+    .app-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 330px;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 16px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Buttons & Inputs */
+    .btn {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .btn-preset {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      justify-content: flex-start;
+      margin-bottom: 6px;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    .btn-preset:last-child {
+      margin-bottom: 0;
+    }
+
+    .btn-preset:hover {
+      background: #f1f5f9;
+      border-color: var(--border-focus);
+      color: var(--primary);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-detect {
+      background: var(--success);
+      color: #ffffff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-detect:hover {
+      background: #15803d;
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-outline:hover {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: var(--danger);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .form-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .form-group label, .form-row label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: var(--text-main);
+      background: #ffffff;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    }
+
+    .segmented-control {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .segmented-control label {
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+      color: var(--text-muted);
+    }
+
+    .segmented-control input[type="radio"] {
+      display: none;
+    }
+
+    .segmented-control label:has(input:checked) {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Right Main Panel */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    /* Canvas Area */
+    .canvas-container {
+      flex: 1.6;
+      position: relative;
+      background-color: #fafbfc;
+      background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+      background-size: 24px 24px;
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      min-height: 280px;
+    }
+
+    svg#ragSvg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      user-select: none;
+    }
+
+    .canvas-instructions {
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #f1f5f9;
+      pointer-events: none;
+    }
+
+    /* SVG Graphical Elements */
+    .node-group {
+      cursor: grab;
+    }
+    .node-group:active {
+      cursor: grabbing;
+    }
+
+    .node-circle {
+      fill: #eff6ff;
+      stroke: #3b82f6;
+      stroke-width: 2.5;
+      transition: fill 0.25s, stroke 0.25s, stroke-width 0.25s;
+    }
+
+    .node-circle.deadlocked {
+      fill: #fee2e2;
+      stroke: #dc2626;
+      stroke-width: 3.5;
+      filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.4));
+    }
+
+    .node-rect {
+      fill: #fffbeb;
+      stroke: #f59e0b;
+      stroke-width: 2.5;
+      rx: 8;
+      ry: 8;
+      transition: stroke 0.25s;
+    }
+
+    .node-text-main {
+      font-size: 13px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+      font-family: var(--font);
+    }
+
+    .node-text-sub {
+      font-size: 10px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      fill: #64748b;
+      pointer-events: none;
+      font-family: var(--font);
+    }
+
+    /* Edge Paths */
+    .edge-path {
+      fill: none;
+      stroke-linecap: round;
+      transition: stroke 0.25s, stroke-width 0.25s;
+    }
+
+    .edge-alloc {
+      stroke: #16a34a;
+      stroke-width: 2.5;
+    }
+
+    .edge-req {
+      stroke: #d97706;
+      stroke-width: 2.5;
+      stroke-dasharray: 5, 4;
+    }
+
+    .edge-cycle {
+      stroke: #dc2626 !important;
+      stroke-width: 3.5 !important;
+      stroke-dasharray: none !important;
+      filter: drop-shadow(0 0 4px rgba(220, 38, 38, 0.5));
+    }
+
+    .edge-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+      font-family: var(--font);
+    }
+
+    .edge-badge-bg {
+      fill: #ffffff;
+      stroke-width: 1;
+      rx: 4;
+      ry: 4;
+    }
+
+    /* Bottom Trace Console */
+    .console-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow: hidden;
+      min-height: 140px;
+    }
+
+    .console-header {
+      padding: 8px 16px;
+      background: #090d16;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #consoleLog {
+      flex: 1;
+      padding: 12px 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .log-step {
+      color: #94a3b8;
+    }
+    .log-avail {
+      color: #38bdf8;
+    }
+    .log-satisfied {
+      color: #4ade80;
+    }
+    .log-deadlock {
+      color: #f87171;
+      font-weight: bold;
+    }
+    .log-safe {
+      color: #34d399;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header>
+    <div class="header-title">
+      <h1>Resource Allocation Graph (RAG) Simulator</h1>
+      <span class="tag">Operating Systems</span>
+    </div>
+    <div id="statusBanner">
+      <span id="statusDot">●</span>
+      <span id="statusText">SYSTEM READY</span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="app-layout">
+
+    <!-- Left Controls Sidebar -->
+    <aside class="sidebar">
+
+      <!-- 1. Presets -->
+      <div class="card">
+        <div class="card-title">1. Preset Scenarios</div>
+        <button class="btn btn-preset" onclick="loadPresetDeadlock()">
+          <span>⚠️</span> 1. Deadlock State (Circular Wait)
+        </button>
+        <button class="btn btn-preset" onclick="loadPresetSafe()">
+          <span>🛡️</span> 2. Safe State (Resolvable)
+        </button>
+        <button class="btn btn-preset" onclick="loadPresetMulti()">
+          <span>🔄</span> 3. Multi-Instance Cycle (Safe)
+        </button>
+      </div>
+
+      <!-- 2. Add Nodes -->
+      <div class="card">
+        <div class="card-title">2. Add Nodes</div>
+        
+        <!-- Add Process -->
+        <div class="form-row">
+          <input type="text" id="procInput" placeholder="Process ID (e.g. P1)" onkeydown="if(event.key==='Enter') addProcess()" />
+          <button class="btn btn-primary" style="width: auto; white-space: nowrap;" onclick="addProcess()">+ Add P</button>
+        </div>
+
+        <!-- Add Resource -->
+        <div class="form-row" style="margin-top: 6px;">
+          <input type="text" id="resInput" placeholder="Resource (e.g. R1)" style="flex: 2;" onkeydown="if(event.key==='Enter') addResource()" />
+          <input type="number" id="resUnits" min="1" max="20" value="1" title="Instance Units" style="flex: 1;" onkeydown="if(event.key==='Enter') addResource()" />
+          <button class="btn btn-primary" style="width: auto; white-space: nowrap;" onclick="addResource()">+ Add R</button>
+        </div>
+      </div>
+
+      <!-- 3. Add Edges -->
+      <div class="card">
+        <div class="card-title">3. Connect Edge</div>
+        <div class="form-row">
+          <div style="flex: 1;">
+            <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Process:</label>
+            <select id="edgeProc"></select>
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Resource:</label>
+            <select id="edgeRes"></select>
+          </div>
+        </div>
+
+        <div class="segmented-control" style="margin-top: 8px;">
+          <label>
+            <input type="radio" name="edgeType" value="ALLOC" checked /> Allocate (R → P)
+          </label>
+          <label>
+            <input type="radio" name="edgeType" value="REQ" /> Request (P → R)
+          </label>
+        </div>
+
+        <button class="btn btn-primary" onclick="addEdge()">+ Connect Edge</button>
+      </div>
+
+      <!-- 4. Action Buttons -->
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+        <button class="btn btn-detect" onclick="runDeadlockDetection()">
+          🔍 DETECT DEADLOCK
+        </button>
+        <button class="btn btn-outline" onclick="clearGraph()">
+          ↺ Reset / Clear Graph
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- Right Workspace -->
+    <main class="main-content">
+      
+      <!-- Graph Canvas -->
+      <div class="canvas-container" id="canvasContainer">
+        <svg id="ragSvg">
+          <defs>
+            <!-- Marker for Allocations (Green) -->
+            <marker id="arrowAlloc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#16a34a" />
+            </marker>
+            <!-- Marker for Requests (Orange) -->
+            <marker id="arrowReq" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#d97706" />
+            </marker>
+            <!-- Marker for Cycle/Deadlock (Red) -->
+            <marker id="arrowCycle" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#dc2626" />
+            </marker>
+          </defs>
+          <g id="edgesGroup"></g>
+          <g id="nodesGroup"></g>
+        </svg>
+        <div class="canvas-instructions">💡 Tip: Drag any node to reposition it on the canvas.</div>
+      </div>
+
+      <!-- Bottom Reduction Trace Console -->
+      <div class="console-container">
+        <div class="console-header">
+          <span>Deadlock Detection &amp; Graph Reduction Trace</span>
+          <span style="font-size: 0.7rem; color: #64748b;">Algorithm: Graph Reduction (Banker's Style)</span>
+        </div>
+        <div id="consoleLog">Simulator initialized. Ready for simulation.</div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script>
+    // --- RAG State Engine ---
+    const rag = {
+      processes: new Set(),
+      resources: new Map(), // rid -> total instances
+      allocations: new Map(), // rid -> Map(pid -> count)  (R -> P)
+      requests: new Map(),    // pid -> Map(rid -> count)  (P -> R)
+      positions: new Map(),   // id -> { x, y }
+
+      clear() {
+        this.processes.clear();
+        this.resources.clear();
+        this.allocations.clear();
+        this.requests.clear();
+        this.positions.clear();
+      },
+
+      addProcess(pid) {
+        pid = pid.trim().toUpperCase();
+        if (!pid) return { ok: false, msg: "Process ID cannot be empty." };
+        if (this.processes.has(pid)) return { ok: false, msg: `Process ${pid} already exists.` };
+        this.processes.add(pid);
+        return { ok: true };
+      },
+
+      addResource(rid, units = 1) {
+        rid = rid.trim().toUpperCase();
+        units = parseInt(units, 10) || 1;
+        if (!rid) return { ok: false, msg: "Resource ID cannot be empty." };
+        if (this.resources.has(rid)) return { ok: false, msg: `Resource ${rid} already exists.` };
+        this.resources.set(rid, units);
+        return { ok: true };
+      },
+
+      getAvailable(rid) {
+        if (!this.resources.has(rid)) return 0;
+        let total = this.resources.get(rid);
+        let allocated = 0;
+        const resAllocs = this.allocations.get(rid);
+        if (resAllocs) {
+          for (let cnt of resAllocs.values()) allocated += cnt;
+        }
+        return total - allocated;
+      },
+
+      addAllocation(rid, pid, count = 1) {
+        rid = rid.trim().toUpperCase();
+        pid = pid.trim().toUpperCase();
+        if (!this.resources.has(rid)) return { ok: false, msg: `Resource ${rid} does not exist.` };
+        if (!this.processes.has(pid)) return { ok: false, msg: `Process ${pid} does not exist.` };
+        
+        const avail = this.getAvailable(rid);
+        if (count > avail) {
+          return { ok: false, msg: `Cannot allocate ${count} instance(s) of ${rid}: only ${avail} free.` };
+        }
+
+        if (!this.allocations.has(rid)) this.allocations.set(rid, new Map());
+        const cur = this.allocations.get(rid).get(pid) || 0;
+        this.allocations.get(rid).set(pid, cur + count);
+
+        // Fulfill pending request if any
+        if (this.requests.has(pid) && this.requests.get(pid).has(rid)) {
+          let reqCount = this.requests.get(pid).get(rid);
+          let fulfill = Math.min(reqCount, count);
+          if (reqCount - fulfill <= 0) {
+            this.requests.get(pid).delete(rid);
+          } else {
+            this.requests.get(pid).set(rid, reqCount - fulfill);
+          }
+        }
+        return { ok: true };
+      },
+
+      addRequest(pid, rid, count = 1) {
+        pid = pid.trim().toUpperCase();
+        rid = rid.trim().toUpperCase();
+        if (!this.processes.has(pid)) return { ok: false, msg: `Process ${pid} does not exist.` };
+        if (!this.resources.has(rid)) return { ok: false, msg: `Resource ${rid} does not exist.` };
+
+        let held = 0;
+        if (this.allocations.has(rid) && this.allocations.get(rid).has(pid)) {
+          held = this.allocations.get(rid).get(pid);
+        }
+        let existingReq = 0;
+        if (this.requests.has(pid) && this.requests.get(pid).has(rid)) {
+          existingReq = this.requests.get(pid).get(rid);
+        }
+        let total = this.resources.get(rid);
+        if (held + existingReq + count > total) {
+          return { ok: false, msg: `Request (${existingReq + count}) + held (${held}) exceeds total capacity (${total}) for ${rid}.` };
+        }
+
+        if (!this.requests.has(pid)) this.requests.set(pid, new Map());
+        const cur = this.requests.get(pid).get(rid) || 0;
+        this.requests.get(pid).set(rid, cur + count);
+        return { ok: true };
+      },
+
+      removeProcess(pid) {
+        pid = pid.trim().toUpperCase();
+        this.processes.delete(pid);
+        this.requests.delete(pid);
+        for (let [r, allocs] of this.allocations) {
+          allocs.delete(pid);
+        }
+      },
+
+      removeResource(rid) {
+        rid = rid.trim().toUpperCase();
+        this.resources.delete(rid);
+        this.allocations.delete(rid);
+        for (let [p, reqs] of this.requests) {
+          reqs.delete(rid);
+        }
+      },
+
+      // Directed DFS Cycle Finder
+      findCycles() {
+        const adj = new Map();
+        for (let [p, reqs] of this.requests) {
+          for (let [r, cnt] of reqs) {
+            if (cnt > 0) {
+              if (!adj.has(p)) adj.set(p, []);
+              adj.get(p).push(r);
+            }
+          }
+        }
+        for (let [r, allocs] of this.allocations) {
+          for (let [p, cnt] of allocs) {
+            if (cnt > 0) {
+              if (!adj.has(r)) adj.set(r, []);
+              adj.get(r).push(p);
+            }
+          }
+        }
+
+        const cycles = [];
+        const visitedGlobal = new Set();
+        const nodes = [...this.processes, ...this.resources.keys()].sort();
+
+        for (let startNode of nodes) {
+          if (visitedGlobal.has(startNode)) continue;
+          const path = [];
+          const onPath = new Set();
+
+          const dfs = (curr) => {
+            visitedGlobal.add(curr);
+            path.push(curr);
+            onPath.add(curr);
+
+            const neighbors = adj.get(curr) || [];
+            for (let nxt of neighbors) {
+              if (!onPath.has(nxt)) {
+                if (!visitedGlobal.has(nxt)) dfs(nxt);
+              } else {
+                const idx = path.indexOf(nxt);
+                cycles.push([...path.slice(idx), nxt]);
+              }
+            }
+
+            path.pop();
+            onPath.delete(curr);
+          };
+
+          dfs(startNode);
+        }
+        return cycles;
+      },
+
+      // Graph Reduction Deadlock Detection
+      detectDeadlock() {
+        const work = new Map();
+        for (let r of [...this.resources.keys()].sort()) {
+          work.set(r, this.getAvailable(r));
+        }
+
+        const finish = new Map();
+        const steps = [];
+        const safeSequence = [];
+
+        const workDesc = [...work.entries()].map(([r, w]) => `${r}=${w}`).join(", ") || "None";
+        steps.push(`[Init] Available Resource Units: ${workDesc}`);
+
+        // Mark idle processes
+        for (let p of [...this.processes].sort()) {
+          let holds = false;
+          for (let r of this.resources.keys()) {
+            if (this.allocations.has(r) && (this.allocations.get(r).get(p) || 0) > 0) {
+              holds = true;
+              break;
+            }
+          }
+          let reqs = this.requests.has(p) && this.requests.get(p).size > 0;
+
+          if (!holds && !reqs) {
+            finish.set(p, true);
+            safeSequence.push(p);
+            steps.push(`[Step] Process ${p} is idle (no requests or held units) -> Finished.`);
+          } else {
+            finish.set(p, false);
+          }
+        }
+
+        let progressed = true;
+        let stepCount = 1;
+        while (progressed) {
+          progressed = false;
+          for (let p of [...this.processes].sort()) {
+            if (finish.get(p)) continue;
+
+            let canSatisfy = true;
+            if (this.requests.has(p)) {
+              for (let [r, cnt] of this.requests.get(p)) {
+                if (cnt > (work.get(r) || 0)) {
+                  canSatisfy = false;
+                  break;
+                }
+              }
+            }
+
+            if (canSatisfy) {
+              stepCount++;
+              const released = [];
+              for (let r of this.resources.keys()) {
+                if (this.allocations.has(r) && this.allocations.get(r).has(p)) {
+                  let held = this.allocations.get(r).get(p);
+                  if (held > 0) {
+                    work.set(r, work.get(r) + held);
+                    released.push(`${r}+${held}`);
+                  }
+                }
+              }
+              finish.set(p, true);
+              safeSequence.push(p);
+              progressed = true;
+
+              const relDesc = released.length ? released.join(", ") : "none";
+              const curWork = [...work.entries()].map(([r, w]) => `${r}=${w}`).join(", ");
+              steps.push(`[Step ${stepCount}] ${p} requests satisfied -> runs, completes & releases (${relDesc}). Available: ${curWork}`);
+            }
+          }
+        }
+
+        const deadlockedProcesses = [...finish.entries()]
+          .filter(([_, done]) => !done)
+          .map(([p]) => p);
+
+        const cycles = this.findCycles();
+
+        if (deadlockedProcesses.length > 0) {
+          steps.push(`\n>>> RESULT: DEADLOCK DETECTED! Deadlocked processes: ${deadlockedProcesses.join(", ")}`);
+        } else {
+          const seq = safeSequence.length ? safeSequence.join(" -> ") : "None";
+          steps.push(`\n>>> RESULT: NO DEADLOCK. Safe execution sequence: ${seq}`);
+        }
+
+        return {
+          deadlocked: deadlockedProcesses.length > 0,
+          deadlockedProcesses,
+          safeSequence,
+          steps,
+          cycles
+        };
+      }
+    };
+
+    // --- Graph Rendering & User Interactions ---
+    let lastAnalysis = null;
+    let draggedNode = null;
+    let dragOffset = { x: 0, y: 0 };
+
+    function getCanvasSize() {
+      const container = document.getElementById("canvasContainer");
+      return {
+        width: Math.max(container.clientWidth || 700, 700),
+        height: Math.max(container.clientHeight || 400, 400)
+      };
+    }
+
+    function autoLayoutNodes() {
+      const { width, height } = getCanvasSize();
+      const procs = [...rag.processes].sort();
+      const res = [...rag.resources.keys()].sort();
+
+      procs.forEach((p, i) => {
+        const x = (width / (procs.length + 1)) * (i + 1);
+        rag.positions.set(p, { x, y: height * 0.28 });
+      });
+
+      res.forEach((r, i) => {
+        const x = (width / (res.length + 1)) * (i + 1);
+        rag.positions.set(r, { x, y: height * 0.72 });
+      });
+    }
+
+    function refreshDropdowns() {
+      const pSelect = document.getElementById("edgeProc");
+      const rSelect = document.getElementById("edgeRes");
+      pSelect.innerHTML = "";
+      rSelect.innerHTML = "";
+
+      for (let p of [...rag.processes].sort()) {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.textContent = p;
+        pSelect.appendChild(opt);
+      }
+
+      for (let r of [...rag.resources.keys()].sort()) {
+        const opt = document.createElement("option");
+        opt.value = r;
+        opt.textContent = r;
+        rSelect.appendChild(opt);
+      }
+    }
+
+    function renderGraph() {
+      const edgesGroup = document.getElementById("edgesGroup");
+      const nodesGroup = document.getElementById("nodesGroup");
+      edgesGroup.innerHTML = "";
+      nodesGroup.innerHTML = "";
+
+      if (rag.processes.size === 0 && rag.resources.size === 0) {
+        const { width, height } = getCanvasSize();
+        const emptyText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        emptyText.setAttribute("x", width / 2);
+        emptyText.setAttribute("y", height / 2);
+        emptyText.setAttribute("text-anchor", "middle");
+        emptyText.setAttribute("fill", "#94a3b8");
+        emptyText.setAttribute("font-size", "14");
+        emptyText.setAttribute("font-weight", "600");
+        emptyText.textContent = "Graph is empty. Click a Preset above or Add Nodes to start.";
+        nodesGroup.appendChild(emptyText);
+        return;
+      }
+
+      const deadlockedSet = new Set(lastAnalysis ? lastAnalysis.deadlockedProcesses : []);
+      const cycleEdges = new Set();
+      if (lastAnalysis && lastAnalysis.cycles) {
+        for (let cycle of lastAnalysis.cycles) {
+          for (let i = 0; i < cycle.length - 1; i++) {
+            cycleEdges.add(`${cycle[i]}->${cycle[i+1]}`);
+          }
+        }
+      }
+
+      // Check if pair of nodes has bidirectional edges (to draw curved paths)
+      function hasOppositeEdge(fromId, toId) {
+        // fromId is R, toId is P -> opposite would be P requesting R
+        if (rag.requests.has(toId) && (rag.requests.get(toId).get(fromId) || 0) > 0) return true;
+        // fromId is P, toId is R -> opposite would be R allocated to P
+        if (rag.allocations.has(toId) && (rag.allocations.get(toId).get(fromId) || 0) > 0) return true;
+        return false;
+      }
+
+      // 1. Draw Edges
+      function drawEdge(fromId, toId, count, isAlloc) {
+        const fromPos = rag.positions.get(fromId);
+        const toPos = rag.positions.get(toId);
+        if (!fromPos || !toPos) return;
+
+        const isCycle = cycleEdges.has(`${fromId}->${toId}`);
+        const isBidirectional = hasOppositeEdge(fromId, toId);
+
+        const dx = toPos.x - fromPos.x;
+        const dy = toPos.y - fromPos.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist === 0) return;
+
+        // Radius offset so arrow touches node boundary neatly
+        const fromRadius = isAlloc ? 32 : 30; // Alloc starts from Resource (rect)
+        const toRadius = isAlloc ? 30 : 34;   // Alloc ends at Process (circle)
+
+        const ux = dx / dist;
+        const uy = dy / dist;
+
+        const sx = fromPos.x + ux * fromRadius;
+        const sy = fromPos.y + uy * fromRadius;
+        const ex = toPos.x - ux * toRadius;
+        const ey = toPos.y - uy * toRadius;
+
+        let pathD = "";
+        let midX = (sx + ex) / 2;
+        let midY = (sy + ey) / 2;
+
+        if (isBidirectional) {
+          // Curve path to prevent overlapping edges
+          const curvature = 26;
+          // Normal vector (-uy, ux)
+          const cx = midX + (-uy) * curvature;
+          const cy = midY + (ux) * curvature;
+          pathD = `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
+          midX = cx * 0.5 + (sx + ex) * 0.25;
+          midY = cy * 0.5 + (sy + ey) * 0.25;
+        } else {
+          pathD = `M ${sx} ${sy} L ${ex} ${ey}`;
+        }
+
+        const pathElem = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pathElem.setAttribute("d", pathD);
+        pathElem.setAttribute("class", `edge-path ${isAlloc ? "edge-alloc" : "edge-req"} ${isCycle ? "edge-cycle" : ""}`);
+        pathElem.setAttribute("marker-end", isCycle ? "url(#arrowCycle)" : (isAlloc ? "url(#arrowAlloc)" : "url(#arrowReq)"));
+        edgesGroup.appendChild(pathElem);
+
+        // Edge Badge (Label)
+        const labelText = isAlloc ? `Alloc: ${count}` : `Req: ${count}`;
+        const badgeG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+        const textElem = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textElem.setAttribute("x", midX);
+        textElem.setAttribute("y", midY);
+        textElem.setAttribute("class", "edge-badge");
+        textElem.setAttribute("fill", isCycle ? "#dc2626" : (isAlloc ? "#15803d" : "#b45309"));
+        textElem.textContent = labelText;
+
+        // Background pill behind text for readability
+        const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const boxW = labelText.length * 6.2 + 8;
+        const boxH = 14;
+        bgRect.setAttribute("x", midX - boxW / 2);
+        bgRect.setAttribute("y", midY - boxH / 2);
+        bgRect.setAttribute("width", boxW);
+        bgRect.setAttribute("height", boxH);
+        bgRect.setAttribute("class", "edge-badge-bg");
+        bgRect.setAttribute("stroke", isCycle ? "#fca5a5" : (isAlloc ? "#bbf7d0" : "#fed7aa"));
+
+        badgeG.appendChild(bgRect);
+        badgeG.appendChild(textElem);
+        edgesGroup.appendChild(badgeG);
+      }
+
+      // Draw all allocations
+      for (let [r, allocs] of rag.allocations) {
+        for (let [p, cnt] of allocs) {
+          if (cnt > 0) drawEdge(r, p, cnt, true);
+        }
+      }
+
+      // Draw all requests
+      for (let [p, reqs] of rag.requests) {
+        for (let [r, cnt] of reqs) {
+          if (cnt > 0) drawEdge(p, r, cnt, false);
+        }
+      }
+
+      // 2. Draw Processes (Circles)
+      for (let p of rag.processes) {
+        const pos = rag.positions.get(p);
+        if (!pos) continue;
+        const isDeadlocked = deadlockedSet.has(p);
+
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "node-group");
+        g.setAttribute("data-id", p);
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", pos.x);
+        circle.setAttribute("cy", pos.y);
+        circle.setAttribute("r", 28);
+        circle.setAttribute("class", isDeadlocked ? "node-circle deadlocked" : "node-circle");
+        g.appendChild(circle);
+
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        title.setAttribute("x", pos.x);
+        title.setAttribute("y", isDeadlocked ? pos.y - 4 : pos.y + 1);
+        title.setAttribute("class", "node-text-main");
+        title.setAttribute("fill", isDeadlocked ? "#991b1b" : "#1e40af");
+        title.textContent = p;
+        g.appendChild(title);
+
+        if (isDeadlocked) {
+          const sub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          sub.setAttribute("x", pos.x);
+          sub.setAttribute("y", pos.y + 11);
+          sub.setAttribute("class", "node-text-sub");
+          sub.setAttribute("fill", "#dc2626");
+          sub.setAttribute("font-weight", "bold");
+          sub.textContent = "BLOCKED";
+          g.appendChild(sub);
+        }
+
+        nodesGroup.appendChild(g);
+      }
+
+      // 3. Draw Resources (Rectangles with instance slots)
+      for (let [r, total] of rag.resources) {
+        const pos = rag.positions.get(r);
+        if (!pos) continue;
+        const free = rag.getAvailable(r);
+
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "node-group");
+        g.setAttribute("data-id", r);
+
+        const w = 78;
+        const h = 54;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", pos.x - w / 2);
+        rect.setAttribute("y", pos.y - h / 2);
+        rect.setAttribute("width", w);
+        rect.setAttribute("height", h);
+        rect.setAttribute("class", "node-rect");
+        g.appendChild(rect);
+
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        title.setAttribute("x", pos.x);
+        title.setAttribute("y", pos.y - 7);
+        title.setAttribute("class", "node-text-main");
+        title.setAttribute("fill", "#92400e");
+        title.textContent = r;
+        g.appendChild(title);
+
+        const sub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        sub.setAttribute("x", pos.x);
+        sub.setAttribute("y", pos.y + 13);
+        sub.setAttribute("class", "node-text-sub");
+        sub.textContent = `Free: ${free}/${total}`;
+        g.appendChild(sub);
+
+        nodesGroup.appendChild(g);
+      }
+    }
+
+    function runDeadlockDetection() {
+      lastAnalysis = rag.detectDeadlock();
+      const banner = document.getElementById("statusBanner");
+      const statusText = document.getElementById("statusText");
+      const consoleLog = document.getElementById("consoleLog");
+
+      if (lastAnalysis.deadlocked) {
+        banner.className = "deadlocked";
+        statusText.textContent = `DEADLOCK DETECTED (${lastAnalysis.deadlockedProcesses.join(", ")})`;
+      } else {
+        banner.className = "safe";
+        const seq = lastAnalysis.safeSequence.length ? lastAnalysis.safeSequence.join(" → ") : "None";
+        statusText.textContent = `SAFE STATE (Safe Sequence: ${seq})`;
+      }
+
+      consoleLog.textContent = lastAnalysis.steps.join("\n");
+      renderGraph();
+    }
+
+    // --- Presets ---
+    function loadPresetDeadlock() {
+      rag.clear();
+      rag.addProcess("P1");
+      rag.addProcess("P2");
+      rag.addResource("R1", 1);
+      rag.addResource("R2", 1);
+      rag.addAllocation("R1", "P1", 1);
+      rag.addAllocation("R2", "P2", 1);
+      rag.addRequest("P1", "R2", 1);
+      rag.addRequest("P2", "R1", 1);
+      autoLayoutNodes();
+      refreshDropdowns();
+      runDeadlockDetection();
+    }
+
+    function loadPresetSafe() {
+      rag.clear();
+      rag.addProcess("P1");
+      rag.addProcess("P2");
+      rag.addResource("R1", 1);
+      rag.addResource("R2", 1);
+      rag.addAllocation("R1", "P1", 1);
+      rag.addRequest("P2", "R1", 1);
+      rag.addAllocation("R2", "P2", 1);
+      autoLayoutNodes();
+      refreshDropdowns();
+      runDeadlockDetection();
+    }
+
+    function loadPresetMulti() {
+      rag.clear();
+      rag.addProcess("P1");
+      rag.addProcess("P2");
+      rag.addProcess("P3");
+      rag.addResource("R1", 2);
+      rag.addResource("R2", 2);
+      rag.addAllocation("R1", "P1", 1);
+      rag.addAllocation("R1", "P2", 1);
+      rag.addAllocation("R2", "P2", 1);
+      rag.addAllocation("R2", "P3", 1);
+      rag.addRequest("P1", "R2", 1);
+      rag.addRequest("P2", "R1", 1);
+      autoLayoutNodes();
+      refreshDropdowns();
+      runDeadlockDetection();
+    }
+
+    // --- Node & Edge Adders ---
+    function addProcess() {
+      const input = document.getElementById("procInput");
+      const pid = input.value.trim().toUpperCase();
+      const res = rag.addProcess(pid);
+      if (!res.ok) {
+        alert(res.msg);
+        return;
+      }
+      input.value = "";
+      autoLayoutNodes();
+      refreshDropdowns();
+      runDeadlockDetection();
+    }
+
+    function addResource() {
+      const rInput = document.getElementById("resInput");
+      const uInput = document.getElementById("resUnits");
+      const rid = rInput.value.trim().toUpperCase();
+      const units = parseInt(uInput.value, 10) || 1;
+      const res = rag.addResource(rid, units);
+      if (!res.ok) {
+        alert(res.msg);
+        return;
+      }
+      rInput.value = "";
+      autoLayoutNodes();
+      refreshDropdowns();
+      runDeadlockDetection();
+    }
+
+    function addEdge() {
+      const pid = document.getElementById("edgeProc").value;
+      const rid = document.getElementById("edgeRes").value;
+      const type = document.querySelector('input[name="edgeType"]:checked').value;
+      if (!pid || !rid) {
+        alert("Please add at least one Process and one Resource first.");
+        return;
+      }
+
+      const res = (type === "ALLOC") 
+        ? rag.addAllocation(rid, pid, 1) 
+        : rag.addRequest(pid, rid, 1);
+
+      if (!res.ok) {
+        alert(res.msg);
+        return;
+      }
+
+      runDeadlockDetection();
+    }
+
+    function clearGraph() {
+      rag.clear();
+      lastAnalysis = null;
+      const banner = document.getElementById("statusBanner");
+      banner.className = "";
+      document.getElementById("statusText").textContent = "GRAPH CLEARED";
+      document.getElementById("consoleLog").textContent = "Graph reset. Select a preset or add new nodes.";
+      refreshDropdowns();
+      renderGraph();
+    }
+
+    // --- Interactive Drag and Drop ---
+    const svgElem = document.getElementById("ragSvg");
+
+    svgElem.addEventListener("mousedown", (e) => {
+      const nodeElem = e.target.closest(".node-group");
+      if (!nodeElem) return;
+      const id = nodeElem.getAttribute("data-id");
+      const pos = rag.positions.get(id);
+      if (!pos) return;
+
+      draggedNode = id;
+      const rect = svgElem.getBoundingClientRect();
+      dragOffset.x = (e.clientX - rect.left) - pos.x;
+      dragOffset.y = (e.clientY - rect.top) - pos.y;
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!draggedNode) return;
+      const rect = svgElem.getBoundingClientRect();
+      const x = Math.max(40, Math.min(rect.width - 40, (e.clientX - rect.left) - dragOffset.x));
+      const y = Math.max(35, Math.min(rect.height - 35, (e.clientY - rect.top) - dragOffset.y));
+      rag.positions.set(draggedNode, { x, y });
+      renderGraph();
+    });
+
+    window.addEventListener("mouseup", () => {
+      draggedNode = null;
+    });
+
+    // Right-click to remove node
+    svgElem.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const nodeElem = e.target.closest(".node-group");
+      if (!nodeElem) return;
+      const id = nodeElem.getAttribute("data-id");
+      if (confirm(`Remove node ${id} and all its connected edges?`)) {
+        if (rag.processes.has(id)) {
+          rag.removeProcess(id);
+        } else if (rag.resources.has(id)) {
+          rag.removeResource(id);
+        }
+        rag.positions.delete(id);
+        autoLayoutNodes();
+        refreshDropdowns();
+        runDeadlockDetection();
+      }
+    });
+
+    // Touch Support for mobile / iPad
+    svgElem.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const nodeElem = target ? target.closest(".node-group") : null;
+      if (!nodeElem) return;
+
+      const id = nodeElem.getAttribute("data-id");
+      const pos = rag.positions.get(id);
+      if (!pos) return;
+
+      draggedNode = id;
+      const rect = svgElem.getBoundingClientRect();
+      dragOffset.x = (touch.clientX - rect.left) - pos.x;
+      dragOffset.y = (touch.clientY - rect.top) - pos.y;
+      e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener("touchmove", (e) => {
+      if (!draggedNode || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const rect = svgElem.getBoundingClientRect();
+      const x = Math.max(40, Math.min(rect.width - 40, (touch.clientX - rect.left) - dragOffset.x));
+      const y = Math.max(35, Math.min(rect.height - 35, (touch.clientY - rect.top) - dragOffset.y));
+      rag.positions.set(draggedNode, { x, y });
+      renderGraph();
+      e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener("touchend", () => {
+      draggedNode = null;
+    });
+
+    // Window resize handler
+    window.addEventListener("resize", () => {
+      renderGraph();
+    });
+
+    // Load default preset on startup
+    window.addEventListener("DOMContentLoaded", () => {
+      loadPresetDeadlock();
+    });
+  </script>
+</body>
+</html>

@@ -87,9 +87,13 @@ class ResourceAllocationGraph:
             return False, "Count must be at least 1."
 
         held = self.allocations[rid].get(pid, 0)
+        existing_req = self.requests[pid].get(rid, 0)
         total = self.resources[rid]
-        if held + count > total:
-            return False, f"Request exceeds total capacity ({total}) for {rid}."
+        if held + existing_req + count > total:
+            return (
+                False,
+                f"Request ({existing_req + count}) + held ({held}) exceeds total capacity ({total}) for {rid}.",
+            )
 
         self.requests[pid][rid] += count
         return True, f"Added request: {pid} -> {rid} ({count} instance(s))."

@@ -73,6 +73,7 @@ class RAGGuiSimulator:
         ttk.Label(p_row, text="Process:").pack(side=tk.LEFT)
         self.proc_entry = ttk.Entry(p_row, width=8)
         self.proc_entry.pack(side=tk.LEFT, padx=4)
+        self.proc_entry.bind("<Return>", lambda e: self.on_add_process())
         ttk.Button(p_row, text="+ Add Process", command=self.on_add_process).pack(side=tk.RIGHT)
 
         # Resource
@@ -81,10 +82,12 @@ class RAGGuiSimulator:
         ttk.Label(r_row, text="Resource:").pack(side=tk.LEFT)
         self.res_entry = ttk.Entry(r_row, width=8)
         self.res_entry.pack(side=tk.LEFT, padx=4)
+        self.res_entry.bind("<Return>", lambda e: self.on_add_resource())
         ttk.Label(r_row, text="Units:").pack(side=tk.LEFT)
         self.res_units = ttk.Spinbox(r_row, from_=1, to=10, width=4)
         self.res_units.set(1)
         self.res_units.pack(side=tk.LEFT, padx=2)
+        self.res_units.bind("<Return>", lambda e: self.on_add_resource())
         ttk.Button(r_row, text="+ Add Resource", command=self.on_add_resource).pack(side=tk.RIGHT)
 
         # 3. Add Edges (Allocation or Request)
@@ -149,6 +152,7 @@ class RAGGuiSimulator:
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_click)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
+        self.canvas.bind("<Button-3>", self.on_canvas_right_click)
         self.canvas.bind("<Configure>", lambda e: self.draw_graph())
 
         # Trace Log
@@ -188,7 +192,7 @@ class RAGGuiSimulator:
             return
         self.proc_entry.delete(0, tk.END)
         self._auto_layout_nodes()
-        self.refresh_ui()
+        self.run_deadlock_detection()
 
     def on_add_resource(self) -> None:
         rid = self.res_entry.get().strip().upper()
@@ -205,7 +209,7 @@ class RAGGuiSimulator:
             return
         self.res_entry.delete(0, tk.END)
         self._auto_layout_nodes()
-        self.refresh_ui()
+        self.run_deadlock_detection()
 
     def on_add_edge(self) -> None:
         pid = self.edge_proc_combo.get().strip()
@@ -321,6 +325,14 @@ class RAGGuiSimulator:
                 for i in range(len(cycle) - 1):
                     cycle_edges.add((cycle[i], cycle[i + 1]))
 
+        # Check if a pair has edges in opposite directions
+        def has_opposite(from_id: str, to_id: str) -> bool:
+            if to_id in self.rag.requests and self.rag.requests[to_id].get(from_id, 0) > 0:
+                return True
+            if to_id in self.rag.allocations and self.rag.allocations[to_id].get(from_id, 0) > 0:
+                return True
+            return False
+
         # Draw Edges first so they sit under the nodes
         # 1. Allocation Edges (R -> P)
         for r, allocs in self.rag.allocations.items():
@@ -329,12 +341,14 @@ class RAGGuiSimulator:
                     is_cycle = (r, p) in cycle_edges
                     color = "#e74c3c" if is_cycle else "#27ae60"
                     width = 3 if is_cycle else 2
+                    offset = 24.0 if has_opposite(r, p) else 0.0
                     self._draw_arrow(
                         self.node_positions[r],
                         self.node_positions[p],
                         color,
                         width,
                         f"Alloc: {count}",
+                        curve_offset=offset,
                     )
 
         # 2. Request Edges (P -> R)
@@ -344,12 +358,14 @@ class RAGGuiSimulator:
                     is_cycle = (p, r) in cycle_edges
                     color = "#e74c3c" if is_cycle else "#d35400"
                     width = 3 if is_cycle else 2
+                    offset = 24.0 if has_opposite(p, r) else 0.0
                     self._draw_arrow(
                         self.node_positions[p],
                         self.node_positions[r],
                         color,
                         width,
                         f"Req: {count}",
+                        curve_offset=offset,
                     )
 
         # Draw Nodes
@@ -425,6 +441,7 @@ class RAGGuiSimulator:
         color: str,
         width: int,
         label: str,
+        curve_offset: float = 0.0,
     ) -> None:
         fx, fy = from_pos
         tx, ty = to_pos
@@ -434,7 +451,6 @@ class RAGGuiSimulator:
         if dist < 1:
             return
 
-        # Shorten line slightly so arrow doesn't overlap node center
         node_radius = 34
         start_ratio = node_radius / dist
         end_ratio = 1 - (node_radius / dist)
@@ -443,23 +459,37 @@ class RAGGuiSimulator:
         ex = fx + dx * end_ratio
         ey = fy + dy * end_ratio
 
-        self.canvas.create_line(
-            sx,
-            sy,
-            ex,
-            ey,
-            arrow=tk.LAST,
-            arrowshape=(11, 13, 5),
-            fill=color,
-            width=width,
-        )
+        if curve_offset != 0:
+            ux = dx / dist
+            uy = dy / dist
+            cx = (sx + ex) / 2 + (-uy) * curve_offset
+            cy = (sy + ey) / 2 + (ux) * curve_offset
+            self.canvas.create_line(
+                sx, sy, cx, cy, ex, ey,
+                smooth=True,
+                arrow=tk.LAST,
+                arrowshape=(11, 13, 5),
+                fill=color,
+                width=width,
+            )
+            lbl_x, lbl_y = cx, cy
+        else:
+            self.canvas.create_line(
+                sx, sy, ex, ey,
+                arrow=tk.LAST,
+                arrowshape=(11, 13, 5),
+                fill=color,
+                width=width,
+            )
+            lbl_x = (sx + ex) / 2
+            lbl_y = (sy + ey) / 2 - 8
 
-        # Midpoint label
-        mx = (sx + ex) / 2
-        my = (sy + ey) / 2
+        # Draw a small background rectangle behind label for crisp readability
+        bbox = (lbl_x - 24, lbl_y - 8, lbl_x + 24, lbl_y + 8)
+        self.canvas.create_rectangle(bbox, fill="white", outline="#cbd5e1")
         self.canvas.create_text(
-            mx,
-            my - 8,
+            lbl_x,
+            lbl_y,
             text=label,
             font=("Helvetica", 8, "bold"),
             fill=color,
@@ -485,13 +515,38 @@ class RAGGuiSimulator:
         dx = event.x - self.drag_data["x"]
         dy = event.y - self.drag_data["y"]
         ox, oy = self.node_positions[node]
-        self.node_positions[node] = (ox + dx, oy + dy)
+        w = max(self.canvas.winfo_width(), 400)
+        h = max(self.canvas.winfo_height(), 300)
+        new_x = max(35.0, min(float(w - 35), ox + dx))
+        new_y = max(35.0, min(float(h - 35), oy + dy))
+        self.node_positions[node] = (new_x, new_y)
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
         self.draw_graph()
 
     def on_canvas_release(self, event) -> None:
         self.drag_data["node"] = None
+
+    def on_canvas_right_click(self, event) -> None:
+        items = self.canvas.find_withtag("current")
+        if not items:
+            return
+        tags = self.canvas.gettags(items[0])
+        for t in tags:
+            if t in self.rag.processes:
+                if messagebox.askyesno("Remove Process", f"Remove Process {t} and all connected edges?"):
+                    self.rag.remove_process(t)
+                    self.node_positions.pop(t, None)
+                    self._auto_layout_nodes()
+                    self.run_deadlock_detection()
+                break
+            elif t in self.rag.resources:
+                if messagebox.askyesno("Remove Resource", f"Remove Resource {t} and all connected edges?"):
+                    self.rag.remove_resource(t)
+                    self.node_positions.pop(t, None)
+                    self._auto_layout_nodes()
+                    self.run_deadlock_detection()
+                break
 
 
 def launch_gui(rag: ResourceAllocationGraph = None) -> None:

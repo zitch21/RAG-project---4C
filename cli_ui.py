@@ -89,9 +89,11 @@ class RAGCliApp:
                 "  8. View Current Graph State\n"
                 "  9. Run Deadlock Detection\n"
                 "  10. Clear Graph\n"
+                "  11. Remove Process\n"
+                "  12. Remove Resource\n"
                 "  0. Exit"
             )
-            choice = input("\nSelect an option (0-10): ").strip()
+            choice = input("\nSelect an option (0-12): ").strip()
 
             if choice == "1":
                 self.rag.load_preset_deadlock()
@@ -149,12 +151,22 @@ class RAGCliApp:
                 self.rag.clear()
                 print(">> Graph cleared.")
 
+            elif choice == "11":
+                pid = input("Enter Process ID to remove: ").strip()
+                _, msg = self.rag.remove_process(pid)
+                print(f">> {msg}")
+
+            elif choice == "12":
+                rid = input("Enter Resource ID to remove: ").strip()
+                _, msg = self.rag.remove_resource(rid)
+                print(f">> {msg}")
+
             elif choice == "0":
                 print("Exiting RAG Simulator.")
                 sys.exit(0)
 
             else:
-                print(">> Invalid option. Enter 0-10.")
+                print(">> Invalid option. Enter 0-12.")
 
 
 if __name__ == "__main__":
