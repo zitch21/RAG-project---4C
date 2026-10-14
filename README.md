@@ -1,8 +1,8 @@
-# Operating Systems — Resource Allocation Graph (RAG) Simulator
+# Operating Systems - Resource Allocation Graph (RAG) Simulator
 
 A simple, interactive simulator for Operating Systems **Resource Allocation Graphs (RAG)** and **Deadlock Detection** using the **Graph Reduction Algorithm** and **Cycle Detection**.
 
-Built with standard Python (`tkinter`) — **no external dependencies or `pip install` required.**
+Built with standard Python (`tkinter`) - **no external dependencies or `pip install` required.**
 
 ---
 
@@ -10,8 +10,8 @@ Built with standard Python (`tkinter`) — **no external dependencies or `pip in
 
 ### Method 1: Double-Click Launcher (Easiest)
 Simply double-click the launcher files inside this project folder:
-* **`run_gui.bat`** — Launches the interactive Visual GUI window.
-* **`run_cli.bat`** — Launches the terminal Command-Line mode.
+* **`run_gui.bat`** - Launches the interactive Visual GUI window.
+* **`run_cli.bat`** - Launches the terminal Command-Line mode.
 
 ---
 

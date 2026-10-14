@@ -8,7 +8,7 @@ from rag_engine import ResourceAllocationGraph
 class RAGGuiSimulator:
     def __init__(self, root: tk.Tk, rag: ResourceAllocationGraph = None):
         self.root = root
-        self.root.title("Operating Systems — Resource Allocation Graph (RAG) Simulator")
+        self.root.title("Operating Systems - Resource Allocation Graph (RAG) Simulator")
         self.root.geometry("1060x680")
         self.root.minsize(920, 580)
 
@@ -25,7 +25,7 @@ class RAGGuiSimulator:
         # Top Status Banner
         self.banner = tk.Label(
             self.root,
-            text="RAG SIMULATOR — READY",
+            text="RAG SIMULATOR - READY",
             font=("Helvetica", 12, "bold"),
             bg="#2c3e50",
             fg="white",
@@ -230,7 +230,7 @@ class RAGGuiSimulator:
         self.rag.clear()
         self.node_positions.clear()
         self.last_analysis = None
-        self.banner.configure(text="RAG SIMULATOR — GRAPH CLEARED", bg="#2c3e50")
+        self.banner.configure(text="RAG SIMULATOR - GRAPH CLEARED", bg="#2c3e50")
         self._log_trace("Graph cleared. Select a preset or add new nodes.")
         self.refresh_ui()
 

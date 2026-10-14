@@ -8,7 +8,7 @@ class RAGCliApp:
 
     def print_banner(self) -> None:
         print("=" * 68)
-        print("   OPERATING SYSTEMS — RESOURCE ALLOCATION GRAPH (RAG) SIMULATOR")
+        print("   OPERATING SYSTEMS - RESOURCE ALLOCATION GRAPH (RAG) SIMULATOR")
         print("=" * 68)
 
     def display_state(self) -> None:
